@@ -404,8 +404,8 @@ class ShowInfraredCamera():
         #######ここからステージ####################################################################
         print('ok')
         port = 'COM3'
-        side_stage = 50000    ###2um/pulse
-        height_stage = 0  ###2um/pulse
+        side_stage = 50000    ###1um/pulse
+        height_stage = 0  ###1um/pulse
         # side_pixel = 45
         # height_pixel = 45
         side_pixel = 40

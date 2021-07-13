@@ -383,48 +383,44 @@ class ShowInfraredCamera():
         self.cam_manager.stop_acquisition()
         print('Stopped Camera')
 
-    def write_backgrand_imaging(self, height, width):
-        img = np.zeros((height, width, 3), np.uint8)
-        return img
 
-
-    def write_onepixel_imaging(self, img, fromleft, fromupper, pixel_size, color, width):
-        img = cv2.rectangle(img, (fromleft, fromupper), (fromleft + pixel_size, fromupper + width), color, -1)
-        return img
-
-
-    def color_append(self, pre_num, imaging, fromleft, fromupper, pixel_size, vertical):
-        if pre_num == 4:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper-20, 10, (255, 255, 255), vertical+40)
-        elif pre_num == 0:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 0, 255), vertical)
-        elif pre_num == 1:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 255, 0), vertical)
-        elif pre_num == 2:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (255, 0, 0), vertical)
-        elif pre_num == 3:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 255, 255), vertical)
-        return imaging
-
-    def count_accuracy(self, num, list):
-        pre = mode(list)
-        all_frame_num = len(list)
-        acc_pre_frame_num = list.count(pre)
-        ave_acc = (acc_pre_frame_num / all_frame_num) * 100
-        print('tag_num : {}'.fromat(num))
-        print('list : {}\n'.format(list_1))
-        print('average_predict : {}\n'.format(pre_1))
-        print('all_frame_number : {}\n'.format(all_frame_num))
-        print('accurate_predict_frame_number : {}\n'.format(acc_pre_frame_num))
-        print('average_accuracy:{}%\n'.format(ave_acc))
-        return pre
-
-    def identificate_tag_from_number(self,tag_num):
-        if tag_num == 00000:
-            return 'A'
 
     def realtime_identification_color(self, classnamelist, model, trigger, gain, exp, im_size_width, im_size_height,
                                       flip):
+        def write_backgrand_imaging(height, width):
+            img = np.zeros((height, width, 3), np.uint8)
+            return img
+
+        def write_onepixel_imaging(img, fromleft, fromupper, pixel_size, color, width):
+            img = cv2.rectangle(img, (fromleft, fromupper), (fromleft + pixel_size, fromupper + width), color, -1)
+            return img
+
+        def color_append(pre_num, imaging, fromleft, fromupper, pixel_size, vertical):
+            if pre_num == 4:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper - 20, 10, (255, 255, 255), vertical + 40)
+            elif pre_num == 0:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 0, 255), vertical)
+            elif pre_num == 1:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 255, 0), vertical)
+            elif pre_num == 2:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (255, 0, 0), vertical)
+            elif pre_num == 3:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 255, 255), vertical)
+            return imaging
+
+        def count_accuracy(num, list):
+            pre = mode(list)
+            all_frame_num = len(list)
+            acc_pre_frame_num = list.count(pre)
+            ave_acc = (acc_pre_frame_num / all_frame_num) * 100
+            print('tag_num : {}'.format(num))
+            print('list : {}\n'.format(list))
+            print('average_predict : {}\n'.format(pre))
+            print('all_frame_number : {}\n'.format(all_frame_num))
+            print('accurate_predict_frame_number : {}\n'.format(acc_pre_frame_num))
+            print('average_accuracy:{}%\n'.format(ave_acc))
+            return pre
+
 
         if trigger == "software":
             self.cam_manager.choose_trigger_type(TriggerType.SOFTWARE)
@@ -460,14 +456,15 @@ class ShowInfraredCamera():
         vertical = 150  # imagingの際の縦の長さ
         # background_width = 1440
         # background_height = 540
+        pre_name = 'Predict Tag : '
         #####ここから変える必要あり
         #fps = 10
         pixel_size = 50  # 移動距離＆1pixelのサイズ
         # result_imaging = 'C:/Users/yt050/Desktop/saveimaging/tag_imaging.mp4'
 
         imaging = write_backgrand_imaging(self.background_height, self.background_width)  # タグイメージングのための背景を記入
-        imaging = cv2.putText(imaging, 'Tag predict Imaging', (10, 200), 2, fontsize_tag, (255, 255, 255), 2, cv2.LINE_AA)  # 文字記入
-        cv2.imshow('predict tag imaging', imaging)
+        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2, cv2.LINE_AA)  # 文字記入
+        #cv2.imshow('predict tag imaging', imaging)
 
         while True:
             # 処理前の時刻
@@ -497,331 +494,355 @@ class ShowInfraredCamera():
 
             X.resize(X.shape[0], X.shape[1], X.shape[2], 1)
 
-            pre = model.predict(X)
+            predict = model.predict(X)
 
             # 疑似カラーを付与
             apply_color_map_image = cv2.applyColorMap(frame, self.colormap_table[
                 self.colormap_table_count % len(self.colormap_table)][1])
 
+            for (i, pre) in enumerate(predict):
 
-            y = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
+                z = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
 
 
 
-            ########################################## 変更点_カードリーダー方式用  #####################################
+                ########################################## 変更点_カードリーダー方式用  #####################################
 
-            ##ラベル合わせ
-            if y == 0 or y == 1:
-                y = 0
-            elif y == 2 or y == 3:
-                y = 1
-            elif y == 4 or y == 5:
-                y = 2
-            elif y == 6 or y == 7:
-                y = 3
-            elif y == 8:
-                y = 4
-            else:
-                pass
-
-            # １つ目のタグ
-            if self.flag == 0:
-                if y == 4:
-                    self.flag = 1
-                if y != 4:
-                    pass
-
-            if self.flag == 1:
-                if y != 4:
-                    self.list_1.append(y)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + pixel_size
-                    self.flag2 = 1
-                if y == 4 and self.flag2 == 1:
-                    self.flag = 2
+                ##ラベル合わせ
+                if z == 0 or z == 1:
+                    y = 0
+                elif z == 2 or z == 3:
+                    y = 1
+                elif z == 4 or z == 5:
+                    y = 2
+                elif z == 6 or z == 7:
+                    y = 3
+                elif z == 8:
+                    y = 4
                 else:
                     pass
 
-            # ２回目のNoneのとき
-            if self.flag == 2:
-                if y != 4:
-                    pass
-                if y == 4:
-                    #pre_1 = mode(self.list_1)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + 10
-                    pre_1 = count_accuracy(1, self.list_1)
-                    self.tag = str(pre_1)
-                    #print('tag{}'.format(pre_1))
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 3
+                # １つ目のタグ
+                if self.flag == 0:
+                    if y == 4:
+                        self.flag = 1
+                    if y != 4:
+                        pass
 
-            # ２つ目のタグ
-            if self.flag == 3:
-                if y != 4:
-                    self.list_2.append(y)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + pixel_size
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag2 = 2
-                if y == 4 and self.flag2 == 2:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 4
-                else:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                if self.flag == 1:
+                    if y != 4:
+                        self.list_1.append(y)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                        self.flag2 = 1
+                    if y == 4 and self.flag2 == 1:
+                        self.flag = 2
+                    else:
+                        pass
 
-            # ３回目のNoneのとき
-            if self.flag == 4:
-                if y != 4:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                if y == 4:
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + 10
-                    #pre_2 = mode(self.list_2)
-                    pre_2 = count_accuracy(2, self.list_2)
-                    self.tag = str(pre_1) + str(pre_2)
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 5
+                # ２回目のNoneのとき
+                if self.flag == 2:
+                    if y != 4:
+                        pass
+                    if y == 4:
+                        #pre_1 = mode(self.list_1)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + 10
+                        pre_1 = count_accuracy(1, self.list_1)
+                        pre_name = pre_name + str(pre_1)
+                        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2,
+                                              cv2.LINE_AA)  # 文字記入
+                        self.tag = str(pre_1)
+                        #print('tag{}'.format(pre_1))
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 3
 
-            # ３つ目のタグ
-            if self.flag == 5:
-                if y != 4:
-                    self.list_3.append(y)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + pixel_size
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag2 = 3
-                if y == 4 and self.flag2 == 3:
-                    self.flag = 6
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                else:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                # ２つ目のタグ
+                if self.flag == 3:
+                    if y != 4:
+                        self.list_2.append(y)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag2 = 2
+                    if y == 4 and self.flag2 == 2:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 4
+                    else:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
 
-            # 4回目のNoneのとき
-            if self.flag == 6:
-                if y != 4:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                if y == 4:
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + 10
-                    # pre_2 = mode(self.list_2)
-                    pre_3 = count_accuracy(3, self.list_3)
-                    self.tag = str(pre_1) + str(pre_2)+str(pre_3)
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 7
+                # ３回目のNoneのとき
+                if self.flag == 4:
+                    if y != 4:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    if y == 4:
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + 10
+                        #pre_2 = mode(self.list_2)
+                        pre_2 = count_accuracy(2, self.list_2)
+                        pre_name = pre_name + str(pre_2)
+                        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2,
+                                              cv2.LINE_AA)  # 文字記入
+                        self.tag = str(pre_1) + str(pre_2)
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 5
 
-            # 4つ目のタグ
-            if self.flag == 7:
-                if y != 4:
-                    self.list_4.append(y)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + pixel_size
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag2 = 4
-                if y == 4 and self.flag2 == 4:
-                    self.flag = 8
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                else:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                # ３つ目のタグ
+                if self.flag == 5:
+                    if y != 4:
+                        self.list_3.append(y)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag2 = 3
+                    if y == 4 and self.flag2 == 3:
+                        self.flag = 6
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    else:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
 
-            # 5回目のNoneのとき
-            if self.flag == 8:
-                if y != 4:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                if y == 4:
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + 10
-                    # pre_2 = mode(self.list_2)
-                    pre_4 = count_accuracy(4, self.list_4)
-                    self.tag = str(pre_1) + str(pre_2) + str(pre_3) + str(pre_4)
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 9
+                # 4回目のNoneのとき
+                if self.flag == 6:
+                    if y != 4:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    if y == 4:
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + 10
+                        # pre_2 = mode(self.list_2)
+                        pre_3 = count_accuracy(3, self.list_3)
+                        pre_name = pre_name + str(pre_3)
+                        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2,
+                                              cv2.LINE_AA)  # 文字記入
+                        self.tag = str(pre_1) + str(pre_2)+str(pre_3)
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 7
 
-            # 5つ目のタグ
-            if self.flag == 9:
-                if y != 4:
-                    self.list_5.append(y)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + pixel_size
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag2 = 5
-                if y == 4 and self.flag2 == 5:
-                    self.flag = 10
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                else:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                # 4つ目のタグ
+                if self.flag == 7:
+                    if y != 4:
+                        self.list_4.append(y)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag2 = 4
+                    if y == 4 and self.flag2 == 4:
+                        self.flag = 8
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    else:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
 
-             # 6回目のNoneのとき
-            if self.flag == 10:
-                if y != 4:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                if y == 4:
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + 10
-                    # pre_2 = mode(self.list_2)
-                    pre_5 = count_accuracy(5, self.list_5)
-                    self.tag = str(pre_1) + str(pre_2) +str(pre_3) + str(pre_4) + str(pre_5)
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 11
+                # 5回目のNoneのとき
+                if self.flag == 8:
+                    if y != 4:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    if y == 4:
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + 10
+                        # pre_2 = mode(self.list_2)
+                        pre_4 = count_accuracy(4, self.list_4)
+                        pre_name = pre_name + str(pre_4)
+                        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2,
+                                              cv2.LINE_AA)  # 文字記入
+                        self.tag = str(pre_1) + str(pre_2) + str(pre_3) + str(pre_4)
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 9
 
-            # 6つ目のタグ
-            if self.flag == 11:
-                if y != 4:
-                    self.list_6.append(y)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + pixel_size
+                # 5つ目のタグ
+                if self.flag == 9:
+                    if y != 4:
+                        self.list_5.append(y)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag2 = 5
+                    if y == 4 and self.flag2 == 5:
+                        self.flag = 10
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    else:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+
+                 # 6回目のNoneのとき
+                if self.flag == 10:
+                    if y != 4:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    if y == 4:
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + 10
+                        # pre_2 = mode(self.list_2)
+                        pre_5 = count_accuracy(5, self.list_5)
+                        pre_name = pre_name + str(pre_5)
+                        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2,
+                                              cv2.LINE_AA)  # 文字記入
+                        self.tag = str(pre_1) + str(pre_2) +str(pre_3) + str(pre_4) + str(pre_5)
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 11
+
+                # 6つ目のタグ
+                if self.flag == 11:
+                    if y != 4:
+                        self.list_6.append(y)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag2 = 6
+                    if y == 4 and self.flag2 == 6:
+                        self.flag = 12
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    else:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+
+                 # 7回目のNoneのとき
+                if self.flag == 12:
+                    if y != 4:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    if y == 4:
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + 10
+                        # pre_2 = mode(self.list_2)
+                        pre_6 = count_accuracy(6, self.list_6)
+                        pre_name = pre_name + str(pre_6)
+                        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2,
+                                              cv2.LINE_AA)  # 文字記入
+                        self.tag = str(pre_1) + str(pre_2) + str(pre_3) + str(pre_4) + str(pre_5) +str(pre_6)
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 13
+
+                # 7つ目のタグ
+                if self.flag == 13:
+                    if y != 4:
+                        self.list_7.append(y)
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag2 = 7
+                    if y == 4 and self.flag2 == 7:
+                        self.flag = 14
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                    else:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+
+                # 測定終了(8回目のNone)
+                if self.flag == 14:
+                    if y != 4:
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
+                    if y == 4:
+                        #pre_3 = mode(self.list_3)
+                        pre_7 = count_accuracy(7, self.list_7)
+                        pre_name = pre_name + str(pre_7)
+                        imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2,
+                                              cv2.LINE_AA)  # 文字記入
+                        self.tag = str(pre_1) + str(pre_2) + str(pre_3) + str(pre_4) + str(pre_5) + str(pre_6) + str(pre_7)
+                        cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
+                                    (probability_position_x, probability_position_y + y_move),
+                                    font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                        self.flag = 15
+
+                if self.flag == 15:
                     cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
                                 (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag2 = 6
-                if y == 4 and self.flag2 == 6:
-                    self.flag = 12
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                else:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-
-             # 7回目のNoneのとき
-            if self.flag == 12:
-                if y != 4:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                if y == 4:
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + 10
-                    # pre_2 = mode(self.list_2)
-                    pre_6 = count_accuracy(6, self.list_6)
-                    self.tag = str(pre_1) + str(pre_2) + str(pre_3) + str(pre_4) + str(pre_5) +str(pre_6)
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 13
-
-            # 7つ目のタグ
-            if self.flag == 13:
-                if y != 4:
-                    self.list_7.append(y)
-                    color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
-                    fromleft = fromleft + pixel_size
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag2 = 7
-                if y == 4 and self.flag2 == 7:
-                    self.flag = 14
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                else:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-
-            # 測定終了(8回目のNone)
-            if self.flag == 14:
-                if y != 4:
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
-                if y == 4:
-                    #pre_3 = mode(self.list_3)
-                    pre_7 = count_accuracy(7, self.list_7)
-                    self.tag = str(pre_1) + str(pre_2) + str(pre_3) + str(pre_4) + str(pre_5) + str(pre_6) + str(pre_7)
-                    cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                                (probability_position_x, probability_position_y + y_move),
-                                font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-                    self.flag = 15
-
-            if self.flag == 15:
-                cv2.putText(apply_color_map_image, 'Predict tag: {}'.format(self.tag),
-                            (probability_position_x, probability_position_y + y_move),
-                            font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
+                                font, fontsize, (0, 165, 255), font_scale, cv2.LINE_AA)
+                    imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (0, 165, 255), 2,
+                                          cv2.LINE_AA)  # 文字記入
 
 
-            # # 初期に戻すのとなんのタグがを表示
-            # if self.flag == 15:
-            #     if self.tag == '302':
-            #         tag_name = 'A'
-            #         cv2.putText(apply_color_map_image, 'Predict tag: {0}/Identification: {1}'.format(self.tag,tag_name),
-            #                     (probability_position_x, probability_position_y + y_move),
-            #                     font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
-            #     if self.tag == '103':
-            #         tag_name = 'B'
-            #         cv2.putText(apply_color_map_image, 'Predict tag: {0}/Identification: {1}'.format(self.tag,tag_name),
-            #                     (probability_position_x, probability_position_y + y_move),
-            #                     font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
-            #     if self.tag == '021':
-            #         tag_name = 'C'
-            #         cv2.putText(apply_color_map_image,
-            #                     'Predict tag: {0}/Identification: {1}'.format(self.tag, tag_name),
-            #                     (probability_position_x, probability_position_y + y_move),
-            #                     font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
+                # # 初期に戻すのとなんのタグがを表示
+                # if self.flag == 15:
+                #     if self.tag == '302':
+                #         tag_name = 'A'
+                #         cv2.putText(apply_color_map_image, 'Predict tag: {0}/Identification: {1}'.format(self.tag,tag_name),
+                #                     (probability_position_x, probability_position_y + y_move),
+                #                     font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
+                #     if self.tag == '103':
+                #         tag_name = 'B'
+                #         cv2.putText(apply_color_map_image, 'Predict tag: {0}/Identification: {1}'.format(self.tag,tag_name),
+                #                     (probability_position_x, probability_position_y + y_move),
+                #                     font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
+                #     if self.tag == '021':
+                #         tag_name = 'C'
+                #         cv2.putText(apply_color_map_image,
+                #                     'Predict tag: {0}/Identification: {1}'.format(self.tag, tag_name),
+                #                     (probability_position_x, probability_position_y + y_move),
+                #                     font, fontsize, (0, 255, 255), font_scale, cv2.LINE_AA)
 
 
-            cv2.putText(apply_color_map_image, 'Predict sample', (samplename_position_x, samplename_position_y),
-                        font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-            cv2.putText(apply_color_map_image, 'Probability', (probability_position_x, probability_position_y),
-                        font, fontsize,
-                        (255, 255, 255), font_scale, cv2.LINE_AA)
-            pretext = classnamelist[y]
-            cv2.putText(apply_color_map_image, pretext, (samplename_position_x + x_move, samplename_position_y),
-                        font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
-
-            if pre[y] > 0.9:  # 確率が90%を超える時
-                cv2.putText(apply_color_map_image, '{}%'.format(round(pre[y] * 100)),
-                            (probability_position_x + x_move, probability_position_y), font, fontsize,
-                            (0, 0, 255), font_scale, cv2.LINE_AA)
-
-            else:
-                cv2.putText(apply_color_map_image, '{}%'.format(round(pre[y] * 100)),
-                            (probability_position_x + x_move, probability_position_y), font, fontsize,
+                cv2.putText(apply_color_map_image, 'Predict sample', (samplename_position_x, samplename_position_y),
+                            font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                cv2.putText(apply_color_map_image, 'Probability', (probability_position_x, probability_position_y),
+                            font, fontsize,
                             (255, 255, 255), font_scale, cv2.LINE_AA)
+                pretext = classnamelist[z]
+                cv2.putText(apply_color_map_image, pretext, (samplename_position_x + x_move, samplename_position_y),
+                            font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+
+                if pre[y] > 0.9:  # 確率が90%を超える時
+                    cv2.putText(apply_color_map_image, '{}%'.format(round(pre[z] * 100)),
+                                (probability_position_x + x_move, probability_position_y), font, fontsize,
+                                (0, 0, 255), font_scale, cv2.LINE_AA)
+
+                else:
+                    cv2.putText(apply_color_map_image, '{}%'.format(round(pre[z] * 100)),
+                                (probability_position_x + x_move, probability_position_y), font, fontsize,
+                                (255, 255, 255), font_scale, cv2.LINE_AA)
 
             cv2.putText(apply_color_map_image,
                         self.colormap_table[self.colormap_table_count % len(self.colormap_table)][0],
@@ -871,7 +892,7 @@ class ShowInfraredCamera():
                 self.colormap_table_count = self.colormap_table_count + 1
 
             # 処理後の時刻
-            t2 = time.time()
+            #t2 = time.time()
 
             # # 経過時間を表示
             # try:
