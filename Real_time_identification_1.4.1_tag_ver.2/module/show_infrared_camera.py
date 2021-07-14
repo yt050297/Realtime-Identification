@@ -13,6 +13,7 @@ import os
 from datetime import datetime as dt
 import glob
 from statistics import mode
+from scipy import stats
 
 
 class ShowInfraredCamera():
@@ -409,17 +410,17 @@ class ShowInfraredCamera():
             return imaging
 
         def count_accuracy(num, list):
-            pre = mode(list)
+            pre, count = stats.mode(list)
             all_frame_num = len(list)
-            acc_pre_frame_num = list.count(pre)
+            acc_pre_frame_num = list.count(pre[0])
             ave_acc = (acc_pre_frame_num / all_frame_num) * 100
             print('tag_num : {}'.format(num))
             print('list : {}\n'.format(list))
-            print('average_predict : {}\n'.format(pre))
+            print('average_predict : {}\n'.format(pre[0]))
             print('all_frame_number : {}\n'.format(all_frame_num))
             print('accurate_predict_frame_number : {}\n'.format(acc_pre_frame_num))
             print('average_accuracy:{}%\n'.format(ave_acc))
-            return pre
+            return pre[0]
 
 
         if trigger == "software":

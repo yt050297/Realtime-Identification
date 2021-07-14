@@ -414,9 +414,9 @@ class ShowInfraredCamera():
         height_resolution = 1000
         # side_resolution = 500
         # height_resolution = 500
-        spd_min = 19000  # 最小速度[PPS]
+        spd_min = 19999 # 最小速度[PPS]
         spd_max = 20000  # 最大速度[PPS]
-        acceleration_time = 1000  # 加減速時間[mS]
+        acceleration_time = 0  # 加減速時間[mS]
         sec = 0.5
         image_sec = 300
         save_path = 'C:/Users/yt050/Desktop/saveimaging/second_try/None'
