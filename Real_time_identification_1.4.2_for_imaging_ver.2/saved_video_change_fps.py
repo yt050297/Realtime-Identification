@@ -27,12 +27,12 @@ def m_speed_change(path_in, path_out, fps_new, color_flag):
     return
 
 path = 'C:/Users/yt050/Desktop/imagingcv2/ok_video/'         # 元動画のパス
-file_name = '2021_07_14_18_33_50_card2.mp4'
+file_name = '2021_07_14_18_58_02_card3.mp4'
 path_in = path + file_name
 #scale_factor = 0.1              # FPSにかけるスケールファクター
 new_fps = 1.35
 color_flag = True               # カラー動画はTrue, グレースケール動画はFalse
-path_out = path + '2021_07_14_18_33_50_card2_changed_{}fps.mp4'.format(new_fps)      # 保存する動画のパス
+path_out = path + '2021_07_14_18_58_02_card3_changed_{}fps.mp4'.format(new_fps)      # 保存する動画のパス
 
 #print(path_in)
 #print(path_out)
