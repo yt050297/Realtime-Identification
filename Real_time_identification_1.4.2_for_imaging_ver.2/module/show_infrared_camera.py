@@ -618,6 +618,7 @@ class ShowInfraredCamera():
         for i in range(height_pixel):
             for j in range(1, side_pixel):
                 if i % 2 == 0:
+                    t1 =time.time()
                     polarizer._set_position_relative(1, -side_resolution)  # 引数一つ目、1:一軸、2:2軸、W:両軸
                     time.sleep(sec)
                     if trigger == "software":
@@ -658,6 +659,9 @@ class ShowInfraredCamera():
                     print(n)
                     #print('予測結果{}'.format(y))
                     n=n+1
+                    t2=time.time()
+                    fps = 1/(t2-t1)
+                    print('fps : {}'.format(fps))
 
                 else:
                     polarizer._set_position_relative(1, side_resolution)  # 引数一つ目、1:一軸、2:2軸、W:両軸
