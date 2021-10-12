@@ -290,18 +290,18 @@ class ShowInfraredCamera():
             frame = self.cam_manager.get_next_image()
             if frame is None:
                 continue
-            # 読み込んだフレームを書き込み
+
             if self.norm == True:
                 frame = self.min_max_normalization(frame)
 
+            # 読み込んだフレームを書き込み
             if flip == 'normal':
                 pass
             elif flip == 'flip':
                 frame = cv2.flip(frame, 1)  # 画像を左右反転
 
             resize_image = cv2.resize(frame, (im_size_width, im_size_height))
-            # print(resize_image)
-            # print('writing')
+
             X = []
             X.append(resize_image)
             X = np.array(X)
@@ -311,23 +311,37 @@ class ShowInfraredCamera():
 
             predict = model.predict(X)
 
+            # 疑似カラーを付与
+            apply_color_map_image = cv2.applyColorMap(frame, self.colormap_table[
+                self.colormap_table_count % len(self.colormap_table)][1])
+
             for (i, pre) in enumerate(predict):
                 y = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
 
-                cv2.putText(frame, 'Predict sample', (samplename_position_x, samplename_position_y), font, fontsize,
-                            (255, 255, 255), font_scale, cv2.LINE_AA)
-                cv2.putText(frame, 'Probability', (probability_position_x, probability_position_y), font, fontsize,
+                cv2.putText(apply_color_map_image, 'Predict sample', (samplename_position_x, samplename_position_y),
+                            font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                cv2.putText(apply_color_map_image, 'Probability', (probability_position_x, probability_position_y),
+                            font, fontsize,
                             (255, 255, 255), font_scale, cv2.LINE_AA)
                 pretext = classnamelist[y]
-                cv2.putText(frame, pretext, (samplename_position_x + x_move, samplename_position_y), font, fontsize,
-                            (255, 255, 255), font_scale, cv2.LINE_AA)
+                cv2.putText(apply_color_map_image, pretext, (samplename_position_x + x_move, samplename_position_y),
+                            font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
 
-                cv2.putText(frame, '{}%'.format(round(pre[y] * 100)),
-                            (probability_position_x + x_move, probability_position_y), font, fontsize,
-                            (255, 255, 255), font_scale, cv2.LINE_AA)
+                if pre[y] > 0.9:  # 確率が90%を超える時
+                    cv2.putText(apply_color_map_image, '{}%'.format(round(pre[y] * 100)),
+                                (probability_position_x + x_move, probability_position_y), font, fontsize,
+                                (0, 0, 255), font_scale, cv2.LINE_AA)
+                else:
+                    cv2.putText(apply_color_map_image, '{}%'.format(round(pre[y] * 100)),
+                                (probability_position_x + x_move, probability_position_y), font, fontsize,
+                                (255, 255, 255), font_scale, cv2.LINE_AA)
 
+            '''cv2.putText(apply_color_map_image,
+                        self.colormap_table[self.colormap_table_count % len(self.colormap_table)][0],
+                        (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 2)
+            '''
             cv2.imshow("Please push Q button when you want to close the window.",
-                       cv2.resize(frame, (800, 800)))
+                       cv2.resize(apply_color_map_image, (800, 800)))
 
             if self.initsavecount == 0 and self.savecount == 0:
                 pass
@@ -337,12 +351,12 @@ class ShowInfraredCamera():
                         self.existnumber = existnumber + 1
                     print('同じファイルが存在しているので、ファイルを新規作成します')
                     self.im_jp.imwrite(self.savepath + '/{:0>6}.png'.format(self.initsavecount + self.existnumber),
-                                       frame)
+                                       apply_color_map_image)
                     self.initsavecount += 1
                     print('saveimage:{:0>6}'.format(self.initsavecount + self.existnumber))
                 else:
                     self.im_jp.imwrite(self.savepath + '/{:0>6}.png'.format(self.initsavecount + self.existnumber),
-                                       frame)
+                                       apply_color_map_image)
                     self.initsavecount += 1
                     print('saveimage:{:0>6}'.format(self.initsavecount + self.existnumber))
             elif self.initsavecount == self.savecount:
@@ -351,7 +365,7 @@ class ShowInfraredCamera():
                 print('Initialize savecount')
 
             if self.video_saveflag == True:
-                self.out.write(cv2.resize(frame, (self.width, self.height)))
+                self.out.write(cv2.resize(apply_color_map_image, (self.width, self.height)))
 
             k = cv2.waitKey(1) & 0xFF
             if k == ord('q'):
@@ -362,6 +376,9 @@ class ShowInfraredCamera():
                 cv2.destroyAllWindows()
                 print('Complete Cancel')
                 break
+
+            elif k == ord('n'):  # N
+                self.colormap_table_count = self.colormap_table_count + 1
 
             # 処理後の時刻
             t2 = time.time()
@@ -376,6 +393,7 @@ class ShowInfraredCamera():
         self.cam_manager.stop_acquisition()
         print('Stopped Camera')
 
+    '''
     def write_backgrand_imaging(self, height, width):
         img = np.zeros((height, width, 3), np.uint8)
         return img
@@ -435,9 +453,10 @@ class ShowInfraredCamera():
         elif k == ord('n'):  # N
             self.colormap_table_count = self.colormap_table_count + 1
 
+    '''
 
     def realtime_identification_color(self, classnamelist, model, trigger, gain, exp, im_size_width, im_size_height,
-                                      flip):
+                                      flip,initial_height, initial_side, pixel_height, pixel_side, error):
 
         if trigger == "software":
             self.cam_manager.choose_trigger_type(TriggerType.SOFTWARE)
@@ -469,19 +488,30 @@ class ShowInfraredCamera():
         fromupper = 10  # 最初のピクセルの上端からの位置
         #background_width = 1440
         #background_height = 1440
-        pixel_size = 20  # 移動距離＆1pixelのサイズ
+        pixel_size = 10  # 移動距離＆1pixelのサイズ
 
         #######ここからステージ####################################################################
         print('ok')
         port = 'COM3'
         #初期位置
+        side_stage = initial_side
+        height_stage = initial_height
         #side_stage = 50000    ###1um/pulse
-        side_stage = 75000
-        height_stage = 0  ###1um/pulse
+        #side_stage = 78000  ##横8cm
+        #side_stage = 66000   #横3列
+        #height_stage = 0  ###1um/pulse
+
         #ピクセル数
+        side_pixel = pixel_side
+        height_pixel = pixel_height
         #side_pixel = 40   ###通常時横5cm
-        side_pixel = 55   ###横8cm
-        height_pixel = 40
+        #side_pixel = 58
+        #side_pixel = 70   ###横8cm
+        #side_pixel = 58 #横3列
+        #height_pixel = 20
+        #height_pixel = 40
+        #height_pixel = 55
+
         #解像度設定
         side_resolution = 1000
         height_resolution = 1000
@@ -491,8 +521,12 @@ class ShowInfraredCamera():
         acceleration_time = 0 # 加減速時間[mS]
         sec = 0.8
         ref_time = 0.19
-        #yoko_sec = 0.35   #通常時
-        yoko_sec = 0.44  #サンプル長い時
+
+        #誤差修正
+        yoko_sec = error
+        ##yoko_sec = 0.35   #通常時
+        #yoko_sec = 0.44  #サンプル長い時
+
 
         def write_backgrand_imaging(height, width):
             img = np.zeros((height, width, 3), np.uint8)
@@ -503,17 +537,56 @@ class ShowInfraredCamera():
             return img
 
         def color_append(pre_num, pre_acc, imaging, fromleft, fromupper, pixel_size):
-            if pre_num == 4:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 255), pixel_size)
-            elif pre_num == 0:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255 * pre_acc), pixel_size)
+            if pre_num == 0:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 102), pixel_size)
             elif pre_num == 1:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255 * pre_acc, 0), pixel_size)
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 178), pixel_size)
             elif pre_num == 2:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255 * pre_acc, 0, 0), pixel_size)
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255), pixel_size)
             elif pre_num == 3:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255 * pre_acc, 255 * pre_acc),
-                                                 pixel_size)
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (102, 0, 0), pixel_size)
+            elif pre_num == 4:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (178, 0, 0), pixel_size)
+            elif pre_num == 5:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 0, 0), pixel_size)
+            elif pre_num == 6:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 102, 102), pixel_size)
+            elif pre_num == 7:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 178, 178), pixel_size)
+            elif pre_num == 8:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255, 255), pixel_size)
+            elif pre_num == 9:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 255), pixel_size)
+            elif pre_num == 10:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 178, 178), pixel_size)
+            elif pre_num == 11:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 102, 102), pixel_size)
+            elif pre_num == 12:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 255), pixel_size)
+
+
+            # elif pre_num == 1:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255), pixel_size)
+            # elif pre_num == 2:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255, 0), pixel_size)
+            # elif pre_num == 3:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 0, 0), pixel_size)
+            # elif pre_num == 4:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255, 255), pixel_size)
+            # elif pre_num == 5:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 0), pixel_size)
+            # elif pre_num == 6:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 0, 255), pixel_size)
+            # elif pre_num == 7:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (125, 125, 125), pixel_size)
+
+
+            # elif pre_num == 1:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255), pixel_size)
+            # elif pre_num == 2:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255*0.6), pixel_size)
+            # elif pre_num == 3:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255*0.2), pixel_size)
 
             return imaging
 
@@ -568,10 +641,10 @@ class ShowInfraredCamera():
 
         print("Reset")
         polarizer.reset()
-        time.sleep(15)
+        time.sleep(25)
         print('初期位置設定')
         polarizer._set_position_relative(1, side_stage)
-        time.sleep(20)
+        time.sleep(30)
         polarizer._set_position_relative(2, height_stage)
         time.sleep(5)
 

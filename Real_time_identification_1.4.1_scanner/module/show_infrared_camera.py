@@ -6,18 +6,15 @@ from module.camera_manager import AutoGainMode
 from module.imread_imwrite_japanese import ImreadImwriteJapanese
 from module.create_reference import CreateReference
 from module.fwhm import FWHM
-from module.autopolarizer import AutoPolarizer
 import cv2
 import time
 import numpy as np
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-import tkinter as tk
 import os
 from datetime import datetime as dt
 import glob
+from statistics import mode
+from scipy import stats
+
 
 class ShowInfraredCamera():
     def __init__(self):
@@ -44,9 +41,20 @@ class ShowInfraredCamera():
         self.detectflag = 0
         self.video_saveflag = False
         self.im_jp = ImreadImwriteJapanese
-
+        #変更点
+        self.list_1 = []
+        self.list_2 = []
+        self.list_3 = []
+        self.list_4 = []
+        self.list_5 = []
+        self.list_6 = []
+        self.list_7 = []
+        self.flag = 0
+        self.flag2 = 0
+        self.tag = 0
         self.background_width = 1440
-        self.background_height = 1440
+        self.background_height = 540
+
 
     def beam_profiler(self, trigger, gain, exp, flip):
 
@@ -202,11 +210,11 @@ class ShowInfraredCamera():
                     self.detectflag = 0
             elif self.detectflag == 2:
                 apply_color_map_image = self.fwhm.realtime_fwhm(apply_color_map_image, ellipses)
-            '''
+
             cv2.putText(apply_color_map_image,
                         self.colormap_table[self.colormap_table_count % len(self.colormap_table)][0],
                         (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-            '''
+
             cv2.imshow("Please push Q button when you want to close the window.",
                        cv2.resize(apply_color_map_image, (800, 800)))
 
@@ -376,68 +384,44 @@ class ShowInfraredCamera():
         self.cam_manager.stop_acquisition()
         print('Stopped Camera')
 
-    def write_backgrand_imaging(self, height, width):
-        img = np.zeros((height, width, 3), np.uint8)
-        return img
-
-    def write_onepixel_imaging(self, img, fromleft, fromupper, color, width):
-        img = cv2.rectangle(img, (fromleft, fromupper), (fromleft + width, fromupper + width), color, -1)
-        return img
-
-    def color_append(self, pre_num, pre_acc, imaging, fromleft, fromupper, pixel_size):
-        if pre_num == 4:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255*pre_acc, 255*pre_acc, 255*pre_acc), pixel_size)
-        elif pre_num == 0:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255*pre_acc), pixel_size)
-        elif pre_num == 1:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255*pre_acc, 0), pixel_size)
-        elif pre_num == 2:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255*pre_acc, 0, 0), pixel_size)
-        elif pre_num == 3:
-            imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255*pre_acc, 255*pre_acc), pixel_size)
-
-        return imaging
-
-    def save_video(self):
-        if self.initsavecount == 0 and self.savecount == 0:
-            pass
-        elif self.initsavecount != self.savecount:
-            if os.path.exists(self.savepath + '/{:0>6}.png'.format(self.initsavecount + self.existnumber)):
-                for existnumber in range(len(glob.glob(self.savepath + '/*.png'))):
-                    self.existnumber = existnumber + 1
-                print('同じファイルが存在しているので、ファイルを新規作成します')
-                self.im_jp.imwrite(self.savepath + '/{:0>6}.png'.format(self.initsavecount + self.existnumber),
-                                   apply_color_map_image)
-                self.initsavecount += 1
-                print('saveimage:{:0>6}'.format(self.initsavecount + self.existnumber))
-            else:
-                self.im_jp.imwrite(self.savepath + '/{:0>6}.png'.format(self.initsavecount + self.existnumber),
-                                   apply_color_map_image)
-                self.initsavecount += 1
-                print('saveimage:{:0>6}'.format(self.initsavecount + self.existnumber))
-        elif self.initsavecount == self.savecount:
-            self.initsavecount = self.savecount = 0
-            self.existnumber = 0
-            print('Initialize savecount')
-
-        if self.video_saveflag == True:
-            self.out.write(imaging)
-
-        k = cv2.waitKey(1) & 0xFF
-        if k == ord('q'):
-            if self.video_saveflag == True:
-                self.out.release()
-                self.video_saveflag = False
-                print('録画終了')
-            cv2.destroyAllWindows()
-            print('Complete Cancel')
-
-        elif k == ord('n'):  # N
-            self.colormap_table_count = self.colormap_table_count + 1
 
 
     def realtime_identification_color(self, classnamelist, model, trigger, gain, exp, im_size_width, im_size_height,
                                       flip):
+        def write_backgrand_imaging(height, width):
+            img = np.zeros((height, width, 3), np.uint8)
+            return img
+
+        def write_onepixel_imaging(img, fromleft, fromupper, pixel_size, color, width):
+            img = cv2.rectangle(img, (fromleft, fromupper), (fromleft + pixel_size, fromupper + width), color, -1)
+            return img
+
+        def color_append(pre_num, imaging, fromleft, fromupper, pixel_size, vertical):
+            if pre_num == 4:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (255, 255, 255), vertical)
+            elif pre_num == 0:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 0, 255), vertical)
+            elif pre_num == 1:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 255, 0), vertical)
+            elif pre_num == 2:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (255, 0, 0), vertical)
+            elif pre_num == 3:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, pixel_size, (0, 255, 255), vertical)
+            return imaging
+
+        def count_accuracy(num, list):
+            pre, count = stats.mode(list)
+            all_frame_num = len(list)
+            acc_pre_frame_num = list.count(pre[0])
+            ave_acc = (acc_pre_frame_num / all_frame_num) * 100
+            print('tag_num : {}'.format(num))
+            print('list : {}\n'.format(list))
+            print('average_predict : {}\n'.format(pre[0]))
+            print('all_frame_number : {}\n'.format(all_frame_num))
+            print('accurate_predict_frame_number : {}\n'.format(acc_pre_frame_num))
+            print('average_accuracy:{}%\n'.format(ave_acc))
+            return pre[0]
+
 
         if trigger == "software":
             self.cam_manager.choose_trigger_type(TriggerType.SOFTWARE)
@@ -462,62 +446,121 @@ class ShowInfraredCamera():
         samplename_position_y = 120
         probability_position_y = 220
         x_move = 800
+        #変更点
+        y_move = 100
         font_scale = 5
 
-        ############イメージング表示用
+        #####ここからは、タグイメージング用のパラメーター
+        #fontsize_tag = 1.3
         fromleft = 10  # 最初のピクセルの左端からの位置
-        fromupper = 10  # 最初のピクセルの上端からの位置
-        #background_width = 1440
-        #background_height = 1440
-        pixel_size = 20  # 移動距離＆1pixelのサイズ
+        fromupper = 270  # 最初のピクセルの上端からの位置
+        vertical = 150  # imagingの際の縦の長さ
+        # background_width = 1440
+        # background_height = 540
+        #pre_name = 'Predict Tag : '
+        #####ここから変える必要あり
+        #fps = 10
+        pixel_size = 1  # 移動距離＆1pixelのサイズ
+        # result_imaging = 'C:/Users/yt050/Desktop/saveimaging/tag_imaging.mp4'
 
-        #######ここからステージ####################################################################
-        print('ok')
-        port = 'COM3'
-        #初期位置
-        #side_stage = 50000    ###1um/pulse
-        side_stage = 75000
-        height_stage = 0  ###1um/pulse
-        #ピクセル数
-        #side_pixel = 40   ###通常時横5cm
-        side_pixel = 55   ###横8cm
-        height_pixel = 40
-        #解像度設定
-        side_resolution = 1000
-        height_resolution = 1000
-        side_length = side_resolution * side_pixel
-        spd_min = 19000  # 最小速度[PPS]
-        spd_max = 20000  # 最大速度[PPS]
-        acceleration_time = 0 # 加減速時間[mS]
-        sec = 0.8
-        ref_time = 0.19
-        #yoko_sec = 0.35   #通常時
-        yoko_sec = 0.44  #サンプル長い時
+        imaging = write_backgrand_imaging(self.background_height, self.background_width)  # タグイメージングのための背景を記入
+        #imaging = cv2.putText(imaging, pre_name, (10, 200), 2, fontsize_tag, (255, 255, 255), 2, cv2.LINE_AA)  # 文字記入
+        #cv2.imshow('predict tag imaging', imaging)
 
-        def write_backgrand_imaging(height, width):
-            img = np.zeros((height, width, 3), np.uint8)
-            return img
+        while True:
+            # 処理前の時刻
+            t1 = time.time()
+            if trigger == "software":
+                self.cam_manager.execute_software_trigger()
 
-        def write_onepixel_imaging(img, fromleft, fromupper, color, width):
-            img = cv2.rectangle(img, (fromleft, fromupper), (fromleft + width, fromupper + width), color, -1)
-            return img
+            frame = self.cam_manager.get_next_image()
+            if frame is None:
+                continue
 
-        def color_append(pre_num, pre_acc, imaging, fromleft, fromupper, pixel_size):
-            if pre_num == 4:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 255), pixel_size)
-            elif pre_num == 0:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255 * pre_acc), pixel_size)
-            elif pre_num == 1:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255 * pre_acc, 0), pixel_size)
-            elif pre_num == 2:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255 * pre_acc, 0, 0), pixel_size)
-            elif pre_num == 3:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255 * pre_acc, 255 * pre_acc),
-                                                 pixel_size)
+            if self.norm == True:
+                frame = self.min_max_normalization(frame)
 
-            return imaging
+            # 読み込んだフレームを書き込み
+            if flip == 'normal':
+                pass
+            elif flip == 'flip':
+                frame = cv2.flip(frame, 1)  # 画像を左右反転
 
-        def save_video(apply_color_map_image):
+            resize_image = cv2.resize(frame, (im_size_width, im_size_height))
+
+            X = []
+            X.append(resize_image)
+            X = np.array(X)
+            X = X.astype("float") / 256
+
+            X.resize(X.shape[0], X.shape[1], X.shape[2], 1)
+
+            predict = model.predict(X)
+
+            # 疑似カラーを付与
+            apply_color_map_image = cv2.applyColorMap(frame, self.colormap_table[
+                self.colormap_table_count % len(self.colormap_table)][1])
+
+            for (i, pre) in enumerate(predict):
+
+                z = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
+
+
+                ########################################## 変更点_カードリーダー方式用  #####################################
+
+                ##ラベル合わせ
+                if z == 0 or z == 1:
+                    y = 0
+                elif z == 2 or z == 3:
+                    y = 1
+                elif z == 4 or z == 5:
+                    y = 2
+                elif z == 6 or z == 7:
+                    y = 3
+                elif z == 8:
+                    y = 4
+                else:
+                    pass
+
+                cv2.waitKey(5)
+                # １つ目のタグ
+                if self.flag == 0:
+                    if y == 4:
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                    if y != 4:
+                        color_append(y, imaging, fromleft, fromupper, pixel_size, vertical)
+                        fromleft = fromleft + pixel_size
+                    else:
+                        pass
+
+                cv2.putText(apply_color_map_image, 'Predict sample', (samplename_position_x, samplename_position_y),
+                            font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+                cv2.putText(apply_color_map_image, 'Probability', (probability_position_x, probability_position_y),
+                            font, fontsize,
+                            (255, 255, 255), font_scale, cv2.LINE_AA)
+                pretext = classnamelist[z]
+                cv2.putText(apply_color_map_image, pretext, (samplename_position_x + x_move, samplename_position_y),
+                            font, fontsize, (255, 255, 255), font_scale, cv2.LINE_AA)
+
+                if pre[y] > 0.9:  # 確率が90%を超える時
+                    cv2.putText(apply_color_map_image, '{}%'.format(round(pre[z] * 100)),
+                                (probability_position_x + x_move, probability_position_y), font, fontsize,
+                                (0, 0, 255), font_scale, cv2.LINE_AA)
+
+                else:
+                    cv2.putText(apply_color_map_image, '{}%'.format(round(pre[z] * 100)),
+                                (probability_position_x + x_move, probability_position_y), font, fontsize,
+                                (255, 255, 255), font_scale, cv2.LINE_AA)
+
+            cv2.putText(apply_color_map_image,
+                        self.colormap_table[self.colormap_table_count % len(self.colormap_table)][0],
+                        (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 2)
+
+            cv2.imshow("Please push Q button when you want to close the window.",
+                       cv2.resize(apply_color_map_image, (800, 800)))
+            cv2.imshow('Predict tag imaging', imaging)
+
             if self.initsavecount == 0 and self.savecount == 0:
                 pass
             elif self.initsavecount != self.savecount:
@@ -540,286 +583,33 @@ class ShowInfraredCamera():
                 print('Initialize savecount')
 
             if self.video_saveflag == True:
-                self.out.write(imaging)
+                self.out.write(cv2.resize(apply_color_map_image, (self.width, self.height)))
+                self.out2.write(imaging)
 
             k = cv2.waitKey(1) & 0xFF
             if k == ord('q'):
                 if self.video_saveflag == True:
                     self.out.release()
+                    self.out2.release()
                     self.video_saveflag = False
                     print('録画終了')
                 cv2.destroyAllWindows()
                 print('Complete Cancel')
+                break
 
             elif k == ord('n'):  # N
                 self.colormap_table_count = self.colormap_table_count + 1
 
-        ####イメージングの背景表示
-        imaging = write_backgrand_imaging(self.background_height, self.background_width)
-        cv2.imshow('image', imaging)
+            # 処理後の時刻
+            #t2 = time.time()
 
-        #Y = np.zeros((height_pixel, side_pixel))
+            # # 経過時間を表示
+            # try:
+            #     freq = 1 / (t2 - t1)
+            #     print(f"フレームレート：{freq}fps")
+            # except ZeroDivisionError:
+            #     pass
 
-        polarizer = AutoPolarizer(port=port)
-
-        print('setting_time')
-        polarizer.set_speed(spd_min, spd_max, acceleration_time)
-        time.sleep(2)
-
-        print("Reset")
-        polarizer.reset()
-        time.sleep(15)
-        print('初期位置設定')
-        polarizer._set_position_relative(1, side_stage)
-        time.sleep(20)
-        polarizer._set_position_relative(2, height_stage)
-        time.sleep(5)
-
-
-
-        ##shoki
-        polarizer._set_position_relative(2, height_resolution)
-        time.sleep(sec)
-        #i = j = 0
-        n=0
-        if trigger == "software":
-            self.cam_manager.execute_software_trigger()
-
-        frame = self.cam_manager.get_next_image()
-        # if frame is None:
-        #     continue
-
-        if self.norm == True:
-            frame = self.min_max_normalization(frame)
-
-        # 読み込んだフレームを書き込み
-        if flip == 'normal':
-            pass
-        elif flip == 'flip':
-            frame = cv2.flip(frame, 1)  # 画像を左右反転
-
-        resize_image = cv2.resize(frame, (im_size_width, im_size_height))
-        # #     # 疑似カラーを付与
-        # apply_color_map_image = cv2.applyColorMap(frame, self.colormap_table[self.colormap_table_count % len(self.colormap_table)][1])
-        # cv2.imshow("Please push Q button when you want to close the window.",cv2.resize(apply_color_map_image, (800, 800)))
-
-        X = []
-        X.append(resize_image)
-        X = np.array(X)
-        X = X.astype("float") / 256
-
-        X.resize(X.shape[0], X.shape[1], X.shape[2], 1)
-
-        pre = model.predict(X)
-
-        pre = pre[0]
-        y = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
-        #Y[i][j] = y
-        #print(i, j)
-        #print(pre)
-        color_append(y, pre[y], imaging, fromleft, fromupper, pixel_size)
-        cv2.imshow('image', imaging)
-        save_video(imaging)
-        print(n)
-        #print('予測結果:{}'.format(y))
-        n=n+1
-
-        for i in range(height_pixel):
-            if i % 2 == 0:
-                polarizer._set_position_relative(1, -side_length)  # 引数一つ目、1:一軸、2:2軸、W:両軸
-                time.sleep(yoko_sec)
-
-                for j in range(1, side_pixel):
-                    t1 = time.time()
-                    if trigger == "software":
-                        self.cam_manager.execute_software_trigger()
-
-                    frame = self.cam_manager.get_next_image()
-                    if frame is None:
-                        continue
-
-                    if self.norm == True:
-                        frame = self.min_max_normalization(frame)
-
-                    # 読み込んだフレームを書き込み
-                    if flip == 'normal':
-                        pass
-                    elif flip == 'flip':
-                        frame = cv2.flip(frame, 1)  # 画像を左右反転
-
-                    resize_image = cv2.resize(frame, (im_size_width, im_size_height))
-
-                    X = []
-                    X.append(resize_image)
-                    X = np.array(X)
-                    X = X.astype("float") / 256
-
-                    X.resize(X.shape[0], X.shape[1], X.shape[2], 1)
-
-                    pre = model.predict(X)
-                    pre = pre[0]
-
-                    y = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
-                    #Y[i][j] = y
-                    #print(i, j)
-                    fromleft = fromleft + pixel_size
-                    color_append(y, pre[y], imaging, fromleft, fromupper, pixel_size)
-                    cv2.imshow('image', imaging)
-                    save_video(imaging)
-                    print(n)
-                    #print('予測結果{}'.format(y))
-                    n=n+1
-                    t2 = time.time()
-                    time1 = t2 - t1
-                    time_chousetu = ref_time - time1
-                    time.sleep(time_chousetu)
-                    t3 = time.time()
-                    fps = 1/(t3-t1)
-                    print(fps)
-
-            else:
-                polarizer._set_position_relative(1, side_length)  # 引数一つ目、1:一軸、2:2軸、W:両軸
-                time.sleep(yoko_sec)
-                # time.sleep(sec)
-                for j in range(1, side_pixel):
-                    t1 = time.time()
-
-                    if trigger == "software":
-                        self.cam_manager.execute_software_trigger()
-
-                    frame = self.cam_manager.get_next_image()
-                    if frame is None:
-                        continue
-
-                    if self.norm == True:
-                        frame = self.min_max_normalization(frame)
-
-                    # 読み込んだフレームを書き込み
-                    if flip == 'normal':
-                        pass
-                    elif flip == 'flip':
-                        frame = cv2.flip(frame, 1)  # 画像を左右反転
-
-                    resize_image = cv2.resize(frame, (im_size_width, im_size_height))
-
-                    X = []
-                    X.append(resize_image)
-                    X = np.array(X)
-                    X = X.astype("float") / 256
-
-                    X.resize(X.shape[0], X.shape[1], X.shape[2], 1)
-
-                    pre = model.predict(X)
-                    pre = pre[0]
-                    y = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
-                    #Y[i][side_pixel-1-j] = y
-                    #print(i, side_pixel-1-j)
-                    fromleft = fromleft - pixel_size
-                    color_append(y, pre[y], imaging, fromleft, fromupper, pixel_size)
-                    cv2.imshow('image', imaging)
-                    save_video(imaging)
-                    print(n)
-                    #print('予測結果:{}'.format(y))
-                    n=n+1
-                    t2 = time.time()
-                    time1 = t2 - t1
-                    time_chousetu = ref_time - time1
-                    time.sleep(time_chousetu)
-                    t3 = time.time()
-                    fps = 1/(t3-t1)
-                    print(fps)
-
-            time.sleep(sec)
-            polarizer._set_position_relative(2, height_resolution)
-            time.sleep(sec)
-
-            fromupper = fromupper + pixel_size
-
-            if i % 2 == 0:
-                if trigger == "software":
-                    self.cam_manager.execute_software_trigger()
-
-                frame = self.cam_manager.get_next_image()
-                if frame is None:
-                    continue
-
-                if self.norm == True:
-                    frame = self.min_max_normalization(frame)
-
-                # 読み込んだフレームを書き込み
-                if flip == 'normal':
-                    pass
-                elif flip == 'flip':
-                    frame = cv2.flip(frame, 1)  # 画像を左右反転
-
-                resize_image = cv2.resize(frame, (im_size_width, im_size_height))
-
-                X = []
-                X.append(resize_image)
-                X = np.array(X)
-                X = X.astype("float") / 256
-
-                X.resize(X.shape[0], X.shape[1], X.shape[2], 1)
-
-                pre = model.predict(X)
-                pre = pre[0]
-                y = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
-                #Y[i+1][j] = y
-                #print(i+1, j)
-                #fromleft = fromleft + pixel_size
-                color_append(y, pre[y], imaging, fromleft, fromupper, pixel_size)
-                cv2.imshow('image', imaging)
-                save_video(imaging)
-                print(n)
-                #print('予測結果:{}'.format(y))
-                n=n+1
-
-
-            else:
-                if trigger == "software":
-                    self.cam_manager.execute_software_trigger()
-
-                frame = self.cam_manager.get_next_image()
-                if frame is None:
-                    continue
-
-                if self.norm == True:
-                    frame = self.min_max_normalization(frame)
-
-                # 読み込んだフレームを書き込み
-                if flip == 'normal':
-                    pass
-                elif flip == 'flip':
-                    frame = cv2.flip(frame, 1)  # 画像を左右反転
-
-                resize_image = cv2.resize(frame, (im_size_width, im_size_height))
-
-                X = []
-                X.append(resize_image)
-                X = np.array(X)
-                X = X.astype("float") / 256
-
-                X.resize(X.shape[0], X.shape[1], X.shape[2], 1)
-
-                pre = model.predict(X)
-                pre = pre[0]
-                y = pre.argmax()  # preがそれぞれの予測確率で一番高いものを取ってきている。Y_testはone-hotベクトル
-                #Y[i+1][side_pixel-1-j] = y
-                #print(i+1, side_pixel-1-j)
-                #fromleft = fromleft + pixel_size
-                color_append(y, pre[y], imaging, fromleft, fromupper, pixel_size)
-                cv2.imshow('image', imaging)
-                save_video(imaging)
-                print(n)
-                #print('予測結果:{}'.format(y))
-                n=n+1
-
-
-        time.sleep(1)
-        self.video_finish()
-        polarizer.stop()
-
-        #cv2.imshow('image',imaging)
         self.cam_manager.stop_acquisition()
         print('Stopped Camera')
 
@@ -834,16 +624,18 @@ class ShowInfraredCamera():
         self.width = width
         tstr = dt.now().strftime('%Y_%m_%d_%H_%M_%S')
         self.result = self.video_savepath + '/{}.mp4'.format(tstr)
+        self.result2 = self.video_savepath + '/tag_imaging_{}.mp4'.format(tstr)
         self.fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
         self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        self.out = cv2.VideoWriter(self.result, self.fourcc, self.fps, (self.background_width, self.background_height), isColor=color)
+        self.out = cv2.VideoWriter(self.result, self.fourcc, self.fps, (self.width, self.height), isColor=color)
+        self.out2 = cv2.VideoWriter(self.result2, self.fourcc, self.fps, (self.background_width, self.background_height), isColor=color)
         self.video_saveflag = True
         print('録画開始')
 
     def video_finish(self):
-        self.video_saveflag = False
         self.out.release()
-        cv2.destroyAllWindows()
+        self.out2.release()
+        self.video_saveflag = False
         print('録画終了')
 
     def min_max_normalization(self, frame):

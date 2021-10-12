@@ -469,19 +469,24 @@ class ShowInfraredCamera():
         fromupper = 10  # 最初のピクセルの上端からの位置
         #background_width = 1440
         #background_height = 1440
-        pixel_size = 20  # 移動距離＆1pixelのサイズ
+        pixel_size = 10  # 移動距離＆1pixelのサイズ
 
         #######ここからステージ####################################################################
         print('ok')
         port = 'COM3'
         #初期位置
         #side_stage = 50000    ###1um/pulse
-        side_stage = 75000
+        #side_stage = 78000  ##横8cm
+        side_stage = 66000   #横3列
         height_stage = 0  ###1um/pulse
         #ピクセル数
         #side_pixel = 40   ###通常時横5cm
-        side_pixel = 55   ###横8cm
-        height_pixel = 40
+        side_pixel = 58
+        #side_pixel = 70   ###横8cm
+        #side_pixel = 58 #横3列
+        #height_pixel = 20
+        #height_pixel = 40
+        height_pixel = 55
         #解像度設定
         side_resolution = 1000
         height_resolution = 1000
@@ -491,7 +496,7 @@ class ShowInfraredCamera():
         acceleration_time = 0 # 加減速時間[mS]
         sec = 0.8
         ref_time = 0.19
-        #yoko_sec = 0.35   #通常時
+        ##yoko_sec = 0.35   #通常時
         yoko_sec = 0.44  #サンプル長い時
 
         def write_backgrand_imaging(height, width):
@@ -503,17 +508,56 @@ class ShowInfraredCamera():
             return img
 
         def color_append(pre_num, pre_acc, imaging, fromleft, fromupper, pixel_size):
-            if pre_num == 4:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 255), pixel_size)
-            elif pre_num == 0:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255 * pre_acc), pixel_size)
+            if pre_num == 0:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 102), pixel_size)
             elif pre_num == 1:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255 * pre_acc, 0), pixel_size)
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 178), pixel_size)
             elif pre_num == 2:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255 * pre_acc, 0, 0), pixel_size)
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255), pixel_size)
             elif pre_num == 3:
-                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255 * pre_acc, 255 * pre_acc),
-                                                 pixel_size)
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (102, 0, 0), pixel_size)
+            elif pre_num == 4:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (178, 0, 0), pixel_size)
+            elif pre_num == 5:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 0, 0), pixel_size)
+            elif pre_num == 6:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 102, 102), pixel_size)
+            elif pre_num == 7:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 178, 178), pixel_size)
+            elif pre_num == 8:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255, 255), pixel_size)
+            elif pre_num == 9:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 255), pixel_size)
+            elif pre_num == 10:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 178, 178), pixel_size)
+            elif pre_num == 11:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 102, 102), pixel_size)
+            elif pre_num == 12:
+                imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 255), pixel_size)
+
+
+            # elif pre_num == 1:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255), pixel_size)
+            # elif pre_num == 2:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255, 0), pixel_size)
+            # elif pre_num == 3:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 0, 0), pixel_size)
+            # elif pre_num == 4:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 255, 255), pixel_size)
+            # elif pre_num == 5:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 255, 0), pixel_size)
+            # elif pre_num == 6:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (255, 0, 255), pixel_size)
+            # elif pre_num == 7:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (125, 125, 125), pixel_size)
+
+
+            # elif pre_num == 1:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255), pixel_size)
+            # elif pre_num == 2:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255*0.6), pixel_size)
+            # elif pre_num == 3:
+            #     imaging = write_onepixel_imaging(imaging, fromleft, fromupper, (0, 0, 255*0.2), pixel_size)
 
             return imaging
 
@@ -568,10 +612,10 @@ class ShowInfraredCamera():
 
         print("Reset")
         polarizer.reset()
-        time.sleep(15)
+        time.sleep(25)
         print('初期位置設定')
         polarizer._set_position_relative(1, side_stage)
-        time.sleep(20)
+        time.sleep(30)
         polarizer._set_position_relative(2, height_stage)
         time.sleep(5)
 
